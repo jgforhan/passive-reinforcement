@@ -16,6 +16,8 @@ class Agent:
 
         ## current position
         self.posn = [0,0]
+        self.tol = 0.01
+        self.iter_limit = 20
         self.world_rep = world
         self.reward = reward
         self.policy = policy
@@ -138,7 +140,8 @@ class Agent:
                 cndl_prob = self.num_tr_specific[init[0]][init[1]].get_transition_val(key) / self.num_tr_generic[init[0]][init[1]][action]
                 self.tr_prob[init[0]][init[1]].set_transition_prob(key, cndl_prob)
 
-    ## Value iteration to determine expected utilities approxly
+    ## Value iteration step to determine expected utilities approxly
+    ## Returns the maximum absolute difference of util estimates
     def __simplified_value_iteration_step__(self):
         temp_vals = (self.values).copy()
         for i in range(self.rows):
@@ -149,8 +152,17 @@ class Agent:
                     temp_vals[i][j] = self.reward[i][j]
                     for key in self.tr_prob[i][j].get_dictionary():
                         temp_vals[i][j] += self.DISCOUNT_FACTOR*self.tr_prob[i][j].get_transition_val(key)*self.values[key[ROW_KEY]][key[COL_KEY]]
+        dif = np.max(np.abs(temp_vals - self.values))
         self.values = temp_vals
+        return dif
 
+    def __simplified_value_iteration__(self):
+        dif = self.tol + 1
+        iters = 0
+        while dif > self.tol and iters < self.iter_limit:
+            dif = self.__simplified_value_iteration_step__()
+            iters += 1
+    
     def __check_goal_state__(self):
         if self.world_rep[self.posn[0]][self.posn[1]] == POS_GOAL or self.world_rep[self.posn[0]][self.posn[1]] == NEG_GOAL:
             self.posn = [0,0]
@@ -159,5 +171,5 @@ class Agent:
         init_state = copy(self.posn)
         action = self.__select_move__()
         self.__update_tr__(init_state, self.posn, action)
-        self.__simplified_value_iteration_step__()
+        self.__simplified_value_iteration__()
         self.__check_goal_state__()
